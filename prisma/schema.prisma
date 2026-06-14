@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Agent {
+  id           String      @id
+  name         String
+  apiKeyHash   String      @map("api_key_hash")
+  source       String      @default("push") // push | coze | dify | openai
+  createdAt    Int         @map("created_at")
+  status       AgentStatus?
+  tasks        Task[]
+  activities   Activity[]
+  artifacts    Artifact[]
+
+  @@map("agents")
+}
+
+model AgentStatus {
+  agentId      String  @id @map("agent_id")
+  status       String  @default("offline") // online | busy | error | offline
+  currentTask  String? @map("current_task")
+  taskCount    Int     @default(0) @map("task_count")
+  nextTrigger  Int?    @map("next_trigger")
+  lastHeartbeat Int?   @map("last_heartbeat")
+  lastActivity String? @map("last_activity")
+  updatedAt    Int     @map("updated_at")
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@map("agent_status")
+}
+
+model Task {
+  id          String
+  agentId     String  @map("agent_id")
+  title       String
+  status      String  @default("pending") // pending | in_progress | done
+  priority    String  @default("medium") // high | medium | low
+  createdAt   Int     @map("created_at")
+  completedAt Int?    @map("completed_at")
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@id([agentId, id])
+  @@map("tasks")
+}
+
+model Activity {
+  id           Int      @id @default(autoincrement())
+  agentId      String   @map("agent_id")
+  eventType    String   @map("event_type") // task_start | task_done | error | heartbeat
+  description  String
+  artifactPath String?  @map("artifact_path")
+  createdAt    Int      @map("created_at")
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@map("activities")
+}
+
+model Artifact {
+  id          Int     @id @default(autoincrement())
+  agentId     String  @map("agent_id")
+  title       String
+  filePath    String  @map("file_path")
+  fileType    String  @map("file_type") // markdown | html | pdf
+  description String?
+  createdAt   Int     @map("created_at")
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@map("artifacts")
+}
